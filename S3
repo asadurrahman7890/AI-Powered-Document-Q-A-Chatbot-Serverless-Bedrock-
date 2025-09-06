@@ -1,0 +1,1 @@
+AWS Console → S3 → select or create bucket → Upload → Add files → select policy.txt → Upload.Make note of the bucket name (your-bucket-name) and object key (policy.txt) — you’ll set them as Lambda env vars.
