@@ -1,0 +1,126 @@
+Create IAM role for the Lambda function
+
+Create an IAM role for Lambda with these permissions:
+
+AWSLambdaBasicExecutionRole (for CloudWatch logs).
+
+AmazonS3ReadOnlyAccess (to read the document).
+
+A policy allowing Bedrock invoke, for example:
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "bedrock:InvokeModel",
+      "Resource": "*"
+    }
+  ]
+}
+
+
+Best practice: restrict Resource to the model ARN when possible. The InvokeModel action is required to call Bedrock. 
+AWS Documentation
++1
+
+How to create a role: IAM → Roles → Create role → Choose Lambda service → Attach the policies above → Create. Lambda must run with that role so it can access S3 and Bedrock. 
+AWS Documentation
+
+6) Create the Lambda function and upload code
+
+Using the Console (beginner steps):
+
+AWS Console → Lambda → Create function → Author from scratch.
+
+Function name: deepseek-policy-chat
+
+Runtime: Python 3.12
+
+Execution role: choose the IAM role you created.
+
+Under Code: you can paste lambda_function.py in the inline editor (for simple projects) OR upload a zip:
+
+To upload a .zip: choose Upload from → .zip file and upload function.zip (see official ZIP instructions). 
+AWS Documentation
++1
+
+Create zip locally (if you prefer):
+
+zip function.zip lambda_function.py
+
+
+Then upload that .zip in the Lambda console.
+
+Set environment variables (Lambda → Configuration → Environment variables):
+
+BUCKET = your-bucket-name
+
+KEY = policy.txt
+
+MODEL_ID = us.deepseek.r1-v1:0 (or the model ID you have access to)
+
+AWS_REGION (optional; default us-east-1)
+You can set these via the Console. 
+AWS Documentation
+
+7) Test Lambda in the console
+
+In Lambda console → Test:
+
+Use this test payload:
+
+{
+  "body": "{\"query\": \"What does the policy say about data sharing?\"}"
+}
+
+
+Invoke the test.
+
+If successful, you’ll see a 200 response and JSON with {"answer": "...model text..."}.
+
+If there’s an error, go to the Monitoring tab → View logs in CloudWatch and read the stack trace.
+
+8) Create API Gateway (HTTP API) and connect to Lambda
+
+API Gateway → Create API → Choose HTTP API (cheaper & simpler than REST API).
+
+Add integration: Lambda function, choose your function deepseek-policy-chat.
+
+Create a route: POST /chat, attach the integration.
+
+Deploy (stages are automatic for HTTP APIs) and copy the invoke URL.
+
+Official docs for Lambda proxy integration and HTTP APIs are here. 
+AWS Documentation
++1
+
+9) Test end-to-end (curl)
+
+Run from your terminal:
+
+curl -s -X POST https://<YOUR-API-ID>.execute-api.<region>.amazonaws.com/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query":"What does the policy say about returns?"}' | jq
+
+
+Expected output:
+
+{"answer":"<model-generated answer based on your policy.txt>"}
+
+
+If you get errors:
+
+Check API Gateway → Integrations & routes.
+
+Check Lambda logs (CloudWatch).
+
+Make sure your role has bedrock:InvokeModel.
+
+10) Monitor & debug
+
+CloudWatch logs: Lambda → Monitor → View logs in CloudWatch. This is the primary place to debug runtime errors and print output.
+
+API Gateway logs/metrics: enable in API settings if you need more detail.
+
+If Bedrock returns 403 or AccessDenied, re-check the IAM policy & whether your account has Bedrock model access. The InvokeModel action is required.
